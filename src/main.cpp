@@ -1,7 +1,7 @@
 /*
  * TCP foundation for SmartProxy. Creates a POSIX socket on port 8080,
- * accepts one client connection, and reads the raw HTTP request into a
- * string via a recv() loop. Next: send a response back to the client.
+ * accepts connections in a loop, reads raw HTTP requests via recv(),
+ * and sends a valid HTTP/1.1 response back to the client.
  */
 
 #include <iostream>
@@ -38,34 +38,46 @@ int main()
 
     if (listen(server_fd, 6) == -1)
         die("listen() failed");
-
-    int client_fd = accept(server_fd, nullptr, nullptr);
-    if (client_fd == -1)
-        die("accept() failed");
-
-    char buffer[4096];
-    std::string request;
     while (true)
     {
-        int bytes_received = recv(client_fd, buffer, sizeof(buffer), 0);
-        if (bytes_received > 0)
+        int client_fd = accept(server_fd, nullptr, nullptr);
+        if (client_fd == -1)
+            die("accept() failed");
+
+        char buffer[4096];
+        std::string request;
+        while (true)
         {
-            request.append(buffer, bytes_received);
-            if (request.find("\r\n\r\n") != std::string::npos)
+            int bytes_received = recv(client_fd, buffer, sizeof(buffer), 0);
+            if (bytes_received > 0)
+            {
+                request.append(buffer, bytes_received);
+                if (request.find("\r\n\r\n") != std::string::npos)
+                    break;
+            }
+            else if (bytes_received == 0)
+            {
                 break;
+            }
+            else
+            {
+                die("recv() failed");
+            }
         }
-        else if (bytes_received == 0)
-        {
-            break;
-        }
-        else
-        {
-            die("recv() failed");
-        }
+        std::string body = "SmartProxy says hello, nerd ";
+        std::string response = "HTTP/1.1 200 OK\r\n"
+                               "Content-Type: text/plain\r\n"
+                               "Content-Length: " +
+                               std::to_string(body.size()) + "\r\n"
+                                                             "Connection: close\r\n"
+                                                             "\r\n" +
+                               body;
+
+        send(client_fd, response.c_str(), response.size(), 0);
+
+        std::cout << request << '\n';
+
+        close(client_fd);
     }
-
-    std::cout << request << '\n';
-
-    close(client_fd);
     close(server_fd);
 }
