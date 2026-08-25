@@ -1,7 +1,8 @@
 /*
- * TCP foundation for SmartProxy. Creates a POSIX socket on port 8080,
- * accepts connections in a loop, reads raw HTTP requests via recv(),
- * and sends a valid HTTP/1.1 response back to the client.
+ * Entry point for smartproxy.
+ * Listens for HTTP requests on port 8080, parses each request,
+ * forwards it to the mock Flask backend, and sends the backend
+ * response back to the client.
  */
 
 #include <iostream>
@@ -13,6 +14,8 @@
 #include <string>
 #include <cerrno>
 
+#include "parser.hpp"
+
 void die(const std::string &msg)
 {
     std::cerr << msg << ": " << strerror(errno) << '\n';
@@ -21,6 +24,10 @@ void die(const std::string &msg)
 
 int main()
 {
+    // Create and configure the main server socket.
+    // smartproxy listens on port 8080 using this socket.
+    // bind() attaches it to the port and listen() makes it ready
+    // to accept incoming connections.
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd == -1)
         die("socket() failed");
@@ -40,6 +47,10 @@ int main()
         die("listen() failed");
     while (true)
     {
+        // Accept a connection from a client such as curl.
+        // server_fd keeps listening for new connections, while client_fd
+        // represents the connection with the specific client we accepted.
+        // We use client_fd to receive the request and later send the response back.
         int client_fd = accept(server_fd, nullptr, nullptr);
         if (client_fd == -1)
             die("accept() failed");
@@ -64,19 +75,54 @@ int main()
                 die("recv() failed");
             }
         }
-        std::string body = "SmartProxy says hello, nerd ";
-        std::string response = "HTTP/1.1 200 OK\r\n"
-                               "Content-Type: text/plain\r\n"
-                               "Content-Length: " +
-                               std::to_string(body.size()) + "\r\n"
-                                                             "Connection: close\r\n"
-                                                             "\r\n" +
-                               body;
+        HttpRequest parsedRequest = parseRequest(request);
 
-        send(client_fd, response.c_str(), response.size(), 0);
+        // Create a separate connection to the Flask backend.
+        // smartproxy acts as the client here and connects to Flask on 127.0.0.1:5000.
+        // backend_fd is used to forward the request to Flask and receive its response.
+        int backend_fd = socket(AF_INET, SOCK_STREAM, 0);
+
+        if (backend_fd == -1)
+            die("backend() failed");
+
+        sockaddr_in backend_address;
+        backend_address.sin_family = AF_INET;
+        backend_address.sin_port = htons(5000);
+        backend_address.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+        if (connect(backend_fd,
+                    (struct sockaddr *)&backend_address,
+                    sizeof(backend_address)) == -1)
+            die("backend connect() failed");
+
+        send(backend_fd, request.c_str(), request.size(), 0);
+        char responseBuffer[4096];
+        std::string backendResponse;
+
+        while (true)
+        {
+            int bytes_received = recv(backend_fd, responseBuffer, sizeof(responseBuffer), 0);
+            if
+
+                (bytes_received > 0)
+            {
+                backendResponse.append(responseBuffer, bytes_received);
+            }
+            else if (bytes_received == 0)
+            {
+                break;
+            }
+            else
+            {
+                die("recv() failed");
+            }
+        }
+
+        send(client_fd, backendResponse.c_str(), backendResponse.size(), 0);
 
         std::cout << request << '\n';
 
+        close(backend_fd);
         close(client_fd);
     }
     close(server_fd);
