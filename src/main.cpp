@@ -45,6 +45,9 @@ int main()
 
     if (listen(server_fd, 6) == -1)
         die("listen() failed");
+
+    int nextBackend = {1};
+
     while (true)
     {
         // Accept a connection from a client such as curl.
@@ -57,6 +60,7 @@ int main()
 
         char buffer[4096];
         std::string request;
+
         while (true)
         {
             int bytes_received = recv(client_fd, buffer, sizeof(buffer), 0);
@@ -87,13 +91,14 @@ int main()
 
         sockaddr_in backend_address;
         backend_address.sin_family = AF_INET;
-        backend_address.sin_port = htons(5000);
+        int backendPort = 5000 + nextBackend;
+        backend_address.sin_port = htons(backendPort);
         backend_address.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-        if (connect(backend_fd,
-                    (struct sockaddr *)&backend_address,
-                    sizeof(backend_address)) == -1)
+        if (connect(backend_fd, (struct sockaddr *)&backend_address, sizeof(backend_address)) == -1)
             die("backend connect() failed");
+
+        nextBackend = (nextBackend % 3) + 1;
 
         send(backend_fd, request.c_str(), request.size(), 0);
         char responseBuffer[4096];
@@ -102,9 +107,7 @@ int main()
         while (true)
         {
             int bytes_received = recv(backend_fd, responseBuffer, sizeof(responseBuffer), 0);
-            if
-
-                (bytes_received > 0)
+            if (bytes_received > 0)
             {
                 backendResponse.append(responseBuffer, bytes_received);
             }
