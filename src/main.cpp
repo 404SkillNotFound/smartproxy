@@ -15,6 +15,7 @@
 #include <cerrno>
 
 #include "parser.hpp"
+#include "lb/balancer.hpp"
 
 void die(const std::string &msg)
 {
@@ -46,7 +47,14 @@ int main()
     if (listen(server_fd, 6) == -1)
         die("listen() failed");
 
-    int nextBackend = {1};
+    Balancer balancer;
+    Backend backend1{"127.0.0.1", "5001", "backend1"};
+    Backend backend2{"127.0.0.1", "5002", "backend2"};
+    Backend backend3{"127.0.0.1", "5003", "backend3"};
+
+    balancer.addBackend(backend1);
+    balancer.addBackend(backend2);
+    balancer.addBackend(backend3);
 
     while (true)
     {
@@ -81,8 +89,10 @@ int main()
         }
         HttpRequest parsedRequest = parseRequest(request);
 
+        Backend backend = balancer.selectBackend();
+
         // Create a separate connection to the Flask backend.
-        // smartproxy acts as the client here and connects to Flask on 127.0.0.1:5000.
+        // smartproxy acts as the client here and connects to the selected Flask backend.
         // backend_fd is used to forward the request to Flask and receive its response.
         int backend_fd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -91,14 +101,12 @@ int main()
 
         sockaddr_in backend_address;
         backend_address.sin_family = AF_INET;
-        int backendPort = 5000 + nextBackend;
+        int backendPort = std::stoi(backend.port);
         backend_address.sin_port = htons(backendPort);
-        backend_address.sin_addr.s_addr = inet_addr("127.0.0.1");
+        backend_address.sin_addr.s_addr = inet_addr(backend.host.c_str());
 
         if (connect(backend_fd, (struct sockaddr *)&backend_address, sizeof(backend_address)) == -1)
             die("backend connect() failed");
-
-        nextBackend = (nextBackend % 3) + 1;
 
         send(backend_fd, request.c_str(), request.size(), 0);
         char responseBuffer[4096];
