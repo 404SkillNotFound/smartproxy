@@ -1,8 +1,8 @@
 /*
  * Entry point for smartproxy.
  * Listens for HTTP requests on port 8080, parses each request,
- * forwards it to the mock Flask backend, and sends the backend
- * response back to the client.
+ * selects a backend using least-connections strategy, forwards
+ * the request, and relays the response back to the client.
  */
 
 #include <iostream>
