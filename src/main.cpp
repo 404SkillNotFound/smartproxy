@@ -1,8 +1,9 @@
 /*
  * Entry point for smartproxy.
- * Listens for HTTP requests on port 8080, parses each request,
- * selects a backend using least-connections strategy, forwards
+ * Listens for HTTP requests on port 8080, selects a backend using
+ * least-connections strategy, skips unhealthy backends, forwards
  * the request, and relays the response back to the client.
+ * A background health checker pings backends every 5 seconds.
  */
 
 #include <iostream>
