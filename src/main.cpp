@@ -14,7 +14,7 @@
 #include <string>
 #include <cerrno>
 
-#include "parser.hpp"like are u sure? I can do this too
+#include "parser.hpp"
 #include "lb/balancer.hpp"
 
 void die(const std::string &msg)
@@ -56,6 +56,8 @@ int main()
     balancer.addBackend(backend2);
     balancer.addBackend(backend3);
 
+    balancer.startHealthChecker();
+
     while (true)
     {
         // Accept a connection from a client such as curl.
@@ -89,8 +91,7 @@ int main()
         }
         HttpRequest parsedRequest = parseRequest(request);
 
-        Backend& backend = balancer.selectLeastConn();
-        backend.active_connections++;
+        Backend &backend = balancer.selectLeastConn();
 
         // Create a separate connection to the Flask backend.
         // smartproxy acts as the client here and connects to the selected Flask backend.
@@ -107,7 +108,13 @@ int main()
         backend_address.sin_addr.s_addr = inet_addr(backend.host.c_str());
 
         if (connect(backend_fd, (struct sockaddr *)&backend_address, sizeof(backend_address)) == -1)
-            die("backend connect() failed");
+        {
+            close(backend_fd);
+            close(client_fd);
+            std::cerr << "backend connect() failed, skipping\n";
+            continue;
+        }
+        backend.active_connections++;
 
         send(backend_fd, request.c_str(), request.size(), 0);
         char responseBuffer[4096];
@@ -131,12 +138,12 @@ int main()
         }
 
         send(client_fd, backendResponse.c_str(), backendResponse.size(), 0);
-
         std::cout << request << '\n';
 
         close(backend_fd);
         backend.active_connections--;
         close(client_fd);
     }
+
     close(server_fd);
 }
