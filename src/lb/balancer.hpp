@@ -11,6 +11,7 @@
 #pragma once
 
 #include <atomic>
+#include <algorithm>
 #include <vector>
 #include "backend.hpp"
 
@@ -22,4 +23,5 @@ class Balancer
 public:
     void addBackend(Backend b);
     Backend selectBackend();
+    Backend& selectLeastConn();
 };

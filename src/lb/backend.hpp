@@ -9,10 +9,13 @@ Backend (example)
 #pragma once
 
 #include <string>
+#include <atomic>
 
 struct Backend
 {
     std::string host;
     std::string port;
     std::string name;
+    
+    std::atomic<int> active_connections{0};
 };

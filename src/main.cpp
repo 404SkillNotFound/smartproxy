@@ -89,7 +89,8 @@ int main()
         }
         HttpRequest parsedRequest = parseRequest(request);
 
-        Backend backend = balancer.selectBackend();
+        Backend& backend = balancer.selectLeastConn();
+        backend.active_connections++;
 
         // Create a separate connection to the Flask backend.
         // smartproxy acts as the client here and connects to the selected Flask backend.
@@ -134,6 +135,7 @@ int main()
         std::cout << request << '\n';
 
         close(backend_fd);
+        backend.active_connections--;
         close(client_fd);
     }
     close(server_fd);
