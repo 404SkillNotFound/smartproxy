@@ -13,7 +13,10 @@
 #include <atomic>
 #include <algorithm>
 #include <vector>
+#include <thread>
+
 #include "backend.hpp"
+#include "health_checker.hpp"
 
 class Balancer
 {
@@ -24,4 +27,6 @@ public:
     void addBackend(const Backend& b);
     Backend& selectBackend();
     Backend& selectLeastConn();
+    
+    void startHealthChecker();
 };

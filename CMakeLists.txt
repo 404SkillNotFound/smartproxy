@@ -11,4 +11,5 @@ add_executable(smartproxy
     src/main.cpp
     src/http/parser.cpp
     src/lb/balancer.cpp
+    src/lb/health_checker.cpp
 )

@@ -1,10 +1,12 @@
-#include "backend.hpp"
 
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <string>
+
+#include "backend.hpp"
+#include "health_checker.hpp"
 
 bool isBackendAlive(const Backend &backend)
 {
