@@ -1,12 +1,15 @@
 #include "balancer.hpp"
 #include <algorithm>
 
-void Balancer::addBackend(Backend b)
+void Balancer::addBackend(const Backend& b)
 {
-    backends.push_back(b);
+    backends.emplace_back();
+    backends.back().host = b.host;
+    backends.back().port = b.port;
+    backends.back().name = b.name;
 }
 
-Backend Balancer::selectBackend()
+Backend& Balancer::selectBackend()
 {
     size_t index = counter.fetch_add(1) % backends.size();
     return backends[index];

@@ -21,7 +21,7 @@ class Balancer
     std::atomic<size_t> counter{0};
 
 public:
-    void addBackend(Backend b);
-    Backend selectBackend();
+    void addBackend(const Backend& b);
+    Backend& selectBackend();
     Backend& selectLeastConn();
 };
