@@ -138,8 +138,22 @@ int main()
             }
         }
 
+        size_t lineEnd = backendResponse.find("\r\n");
+        std::string statusLine = backendResponse.substr(0, lineEnd);
+
+        size_t firstSpace = statusLine.find(' ');
+        size_t secondSpace = statusLine.find(' ', firstSpace + 1);
+
+        std::string status = statusLine.substr(
+            firstSpace + 1,
+            secondSpace - firstSpace - 1);
+
         send(client_fd, backendResponse.c_str(), backendResponse.size(), 0);
-        std::cout << request << '\n';
+
+        std::cout << "[" << parsedRequest.method << "] "
+                  << parsedRequest.target << " → "
+                  << backend.name << ":" << backend.port
+                  << " — " << status << " OK\n";
 
         close(backend_fd);
         backend.active_connections--;
