@@ -110,6 +110,20 @@ int main()
 
         if (connect(backend_fd, (struct sockaddr *)&backend_address, sizeof(backend_address)) == -1)
         {
+            backend.consecutive_failures++;
+
+            if (backend.circuit_state == CircuitState::HALF_OPEN)
+            {
+                backend.circuit_state = CircuitState::OPEN;
+                backend.half_open_request_in_progress = false;
+                backend.circuit_opened_at = std::chrono::steady_clock::now();
+            }
+            else if (backend.consecutive_failures >= 3)
+            {
+                backend.circuit_state = CircuitState::OPEN;
+                backend.circuit_opened_at = std::chrono::steady_clock::now();
+            }
+
             close(backend_fd);
             close(client_fd);
             std::cerr << "backend connect() failed, skipping\n";
@@ -149,6 +163,29 @@ int main()
             secondSpace - firstSpace - 1);
 
         send(client_fd, backendResponse.c_str(), backendResponse.size(), 0);
+
+        if (backend.circuit_state == CircuitState::HALF_OPEN)
+        {
+            if (status == "200")
+            {
+                backend.circuit_state = CircuitState::CLOSED;
+                backend.consecutive_failures = 0;
+                backend.half_open_request_in_progress = false;
+            }
+            else
+            {
+                backend.circuit_state = CircuitState::OPEN;
+                backend.half_open_request_in_progress = false;
+                backend.circuit_opened_at = std::chrono::steady_clock::now();
+            }
+        }
+        else if (backend.circuit_state == CircuitState::CLOSED)
+        {
+            if (status == "200")
+            {
+                backend.consecutive_failures = 0;
+            }
+        }
 
         std::cout << "[" << parsedRequest.method << "] "
                   << parsedRequest.target << " → "

@@ -25,8 +25,8 @@ class Balancer
 
 public:
     void addBackend(const Backend& b);
+    void startHealthChecker();
+
     Backend& selectBackend();
     Backend& selectLeastConn();
-    
-    void startHealthChecker();
 };

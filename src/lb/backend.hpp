@@ -9,8 +9,16 @@ Backend (example)
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <string>
 #include <utility>
+
+enum class CircuitState
+{
+    CLOSED,
+    OPEN,
+    HALF_OPEN
+};
 
 struct Backend
 {
@@ -19,7 +27,14 @@ struct Backend
     std::string name;
 
     std::atomic<int> active_connections{0};
+    std::chrono::steady_clock::time_point circuit_opened_at;
+
     bool healthy{true};
+    bool half_open_request_in_progress{false};
+
+    CircuitState circuit_state{CircuitState::CLOSED};
+
+    int consecutive_failures = {0};
 
     /*
     These constructors handle how Backend objects are created and moved.
